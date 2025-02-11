@@ -37,38 +37,42 @@ public class ContacterRepairCafe  extends ContractNetInitiator{
     @Override
     protected void handleAllResponses(List<ACLMessage> theirVotes, List<ACLMessage> myAnswers) {
         ArrayList<ACLMessage> listeProposals = new ArrayList<>(theirVotes);
-        //we keep only the proposals only
         listeProposals.removeIf(v -> v.getPerformative() != ACLMessage.PROPOSE);
         myAnswers.clear();
 
-        ACLMessage bestProposal =null;
-        ACLMessage bestAnswer =null;
-        var bestPrice = Integer.MAX_VALUE;
+        ACLMessage bestProposal = null;
+        ACLMessage bestAnswer = null;
+        double bestPrice = Double.MAX_VALUE; // Utilisation de double au lieu d'int
 
         for (ACLMessage proposal : listeProposals) {
-            //by default, we build a accept answer for each proposal
             var answer = proposal.createReply();
             answer.setPerformative(ACLMessage.REJECT_PROPOSAL);
             myAnswers.add(answer);
-            var content = Integer.parseInt(proposal.getContent());
-            monAgent.println(proposal.getSender().getLocalName() + " has proposed " + content);
-            if (content<bestPrice){
-                bestPrice = content;
-                bestProposal = proposal;
-                bestAnswer = answer;
-            }
 
+            try {
+                double content = Double.parseDouble(proposal.getContent().trim()); // Utilisation de Double.parseDouble()
+                monAgent.println(proposal.getSender().getLocalName() + " has proposed " + content + "€");
+
+                if (content < bestPrice) {
+                    bestPrice = content;
+                    bestProposal = proposal;
+                    bestAnswer = answer;
+                }
+            } catch (NumberFormatException e) {
+                monAgent.println("Error parsing price from " + proposal.getSender().getLocalName() + ": " + proposal.getContent());
+            }
         }
 
-        if (bestProposal !=null)
-        {
+        if (bestProposal != null) {
             bestProposal.setPerformative(ACLMessage.ACCEPT_PROPOSAL);
-            monAgent.println("I choose the proposal of " + bestProposal.getSender().getLocalName());
+            monAgent.println("I choose the proposal of " + bestProposal.getSender().getLocalName() + " for " + bestPrice + "€.");
+        } else {
+            monAgent.println("No valid proposals received.");
         }
 
         monAgent.println("-".repeat(40));
-
     }
+
 
     //function triggered by a INFORM msg : a voter accept the result
     // @Override
