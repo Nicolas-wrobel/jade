@@ -8,6 +8,7 @@ import java.util.ArrayList;
 import java.util.List;
 
 public class ContacterRepairCafe  extends ContractNetInitiator{
+
     UserAgent monAgent;
     public ContacterRepairCafe(UserAgent a, ACLMessage msg) {
         super(a, msg);
@@ -42,7 +43,7 @@ public class ContacterRepairCafe  extends ContractNetInitiator{
 
         ACLMessage bestProposal = null;
         ACLMessage bestAnswer = null;
-        double bestPrice = Double.MAX_VALUE; // Utilisation de double au lieu d'int
+        double bestPrice = Double.MAX_VALUE;
 
         for (ACLMessage proposal : listeProposals) {
             var answer = proposal.createReply();
@@ -50,7 +51,7 @@ public class ContacterRepairCafe  extends ContractNetInitiator{
             myAnswers.add(answer);
 
             try {
-                double content = Double.parseDouble(proposal.getContent().trim()); // Utilisation de Double.parseDouble()
+                double content = Double.parseDouble(proposal.getContent().trim());
                 monAgent.println(proposal.getSender().getLocalName() + " has proposed " + content + "€");
 
                 if (content < bestPrice) {
@@ -64,14 +65,13 @@ public class ContacterRepairCafe  extends ContractNetInitiator{
         }
 
         if (bestProposal != null) {
-            bestProposal.setPerformative(ACLMessage.ACCEPT_PROPOSAL);
+            bestAnswer.setPerformative(ACLMessage.ACCEPT_PROPOSAL);
             monAgent.println("I choose the proposal of " + bestProposal.getSender().getLocalName() + " for " + bestPrice + "€.");
         } else {
-            monAgent.println("No valid proposals received.");
+            monAgent.println("❌ Aucun RepairCoffeeAgent n'a proposé de solution. Recherche d'autres options...");
         }
-
-        monAgent.println("-".repeat(40));
     }
+
 
 
     //function triggered by a INFORM msg : a voter accept the result

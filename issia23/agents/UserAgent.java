@@ -23,6 +23,7 @@ public class UserAgent extends AgentWindowed {
     List<AID> helpers;
 
     List<Product> products;
+    private boolean cfpSent = false;
 
     @Override
     public void setup() {
@@ -31,21 +32,20 @@ public class UserAgent extends AgentWindowed {
 
         skill = (int) (Math.random() * 4);
         println("hello, I have a skill = " + skill);
-        helpers = new ArrayList<>();
 
+        helpers = new ArrayList<>();
         products = new ArrayList<>();
         var allProducts = Product.getListProducts();
         var nb = allProducts.size();
-        for(int i=0; i<3; i++) {
-            var rand = (int)(Math.random()*nb);
+        for (int i = 0; i < 3; i++) {
+            var rand = (int) (Math.random() * nb);
             products.add(allProducts.get(rand));
         }
         println("I have the following products:");
-        for(var p:products) println(p.getName());
+        for (var p : products) println(p.getName());
 
         System.out.println(getLocalName() + " est prêt !");
 
-        // Lancer automatiquement la recherche de réparateurs
         addBehaviour(new jade.core.behaviours.OneShotBehaviour() {
             @Override
             public void action() {
@@ -56,7 +56,10 @@ public class UserAgent extends AgentWindowed {
                     println("Found repair agent: " + aid.getLocalName());
                 println("-".repeat(30));
 
-                addCFP(); // Envoyer la demande de réparation immédiatement
+                if (!cfpSent) {
+                    addCFP();
+                    cfpSent = true;
+                }
             }
         });
     }
@@ -64,8 +67,6 @@ public class UserAgent extends AgentWindowed {
 
     @Override
     public void onGuiEvent(GuiEvent evt) {
-        //I suppose there is only one type of event, clic on go
-        //search about repairing agents
         helpers.addAll(Arrays.stream(AgentServicesTools.searchAgents(this, "repair", null)).toList());
 
         println("-".repeat(30));
@@ -73,15 +74,16 @@ public class UserAgent extends AgentWindowed {
             println("found this agent : " + aid.getLocalName());
         println("-".repeat(30));
 
-        addCFP();
+        if (!cfpSent) {  // Vérifie que `addCFP()` n'a pas déjà été appelé
+            addCFP();
+            cfpSent = true;
+        }
     }
 
     /**add a CFP from user to list of helpers*/
     private void addCFP() {
         System.out.println("🛠 `addCFP()` est appelé !");
         System.out.println("📌 Nombre de produits avant sélection: " + products.size());
-        ACLMessage msg = new ACLMessage(ACLMessage.CFP);
-        msg.setConversationId("id");
 
         if (products.isEmpty()) {
             println("No products available for repair request.");
@@ -91,28 +93,23 @@ public class UserAgent extends AgentWindowed {
         int randint = (int) (Math.random() * products.size());
         Product selectedProduct = products.get(randint);
 
-        if (selectedProduct == null) {
-            println("Selected product is null!");
+        if (selectedProduct == null || selectedProduct.getName() == null || selectedProduct.getName().isEmpty()) {
+            println("⚠ Erreur : produit sélectionné invalide.");
             return;
         }
 
-        String productName = selectedProduct.getName();
-
-        if (productName == null || productName.isEmpty()) {
-            println("Invalid product name selected: " + selectedProduct);
-            return;
-        }
-
-        println("Sending repair request for: " + productName);
-        msg.setContent(productName);
+        ACLMessage msg = new ACLMessage(ACLMessage.CFP);
+        msg.setConversationId("id");
+        msg.setContent(selectedProduct.getName());
         msg.addReceivers(helpers.toArray(AID[]::new));
 
         msg.setProtocol(FIPANames.InteractionProtocol.FIPA_CONTRACT_NET);
         msg.setReplyByDate(new Date(System.currentTimeMillis() + 1000));
 
-        var contacterRepairCafe = new ContacterRepairCafe(this, msg);
-        addBehaviour(contacterRepairCafe);
+        println("📩 Demande envoyée pour la réparation de : " + selectedProduct.getName());
+        addBehaviour(new ContacterRepairCafe(this, msg));
     }
+
 
 
     /**here we simplify the scenario. A breakdown is about 1 elt..

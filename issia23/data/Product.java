@@ -63,17 +63,23 @@ public class Product implements Serializable {
      * by step of VARIATIONSTEP% of the standard price.
      *  @return the list of created products  */
     static public List<Product> getListProducts() {
-         if (listProducts == null) {
+        if (listProducts == null) {
             listProducts = new ArrayList<>();
             var listeTypes = ProductType.values();
-            for(var aType:listeTypes){
-                for(int i=-VARIATION; i<=VARIATION; i+=VARIATION_STEP) {
-                    listProducts.add(new Product(aType.toString()+i, aType, aType.getStandardPrice()*(1+i/100d)));
+            for (var aType : listeTypes) {
+                for (int i = -VARIATION; i <= VARIATION; i += VARIATION_STEP) {
+                    Product newProduct = new Product(aType.toString() + i, aType, aType.getStandardPrice() * (1 + i / 100d));
+                    if (newProduct != null && newProduct.getName() != null) { // Vérification supplémentaire
+                        listProducts.add(newProduct);
+                    }
                 }
             }
         }
+
+        listProducts.removeIf(Objects::isNull); // Élimination des objets null
         return listProducts;
     }
+
 
     /**choose randomly a part of the product that is identified as faulty*/
     public Part getFaultyPart() {
