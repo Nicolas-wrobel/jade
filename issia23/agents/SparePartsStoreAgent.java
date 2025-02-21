@@ -7,8 +7,7 @@ import jade.gui.SimpleWindow4Agent;
 import jade.lang.acl.ACLMessage;
 
 import java.awt.Color;
-import java.util.ArrayList;
-import java.util.List;
+import java.util.*;
 
 public class SparePartsStoreAgent extends AgentWindowed {
     List<Part> parts;
@@ -42,20 +41,48 @@ public class SparePartsStoreAgent extends AgentWindowed {
             public void action() {
                 ACLMessage msg = myAgent.receive();
                 if (msg != null && msg.getPerformative() == ACLMessage.REQUEST) {
-                    System.out.println(getLocalName() + " received a request for " + msg.getContent());
+                    String requestedPart = msg.getContent();
+                    System.out.println(getLocalName() + "Demande reçue pour " + requestedPart);
 
                     ACLMessage reply = msg.createReply();
-                    boolean partAvailable = parts.stream().anyMatch(p -> p.getName().equals(msg.getContent()));
+                    Optional<Part> partToSell = parts.stream()
+                            .filter(p -> p.getName().equals(requestedPart))
+                            .findFirst();
 
-                    if (partAvailable) {
-                        reply.setPerformative(ACLMessage.INFORM);
-                        reply.setContent("I have the part!");
+                    if (partToSell.isPresent()) {
+                        double partPrice = 20 + Math.random() * 20; // Prix entre 20€ et 40€
+                        reply.setPerformative(ACLMessage.PROPOSE);
+                        reply.setContent(String.valueOf(partPrice));
+                        myAgent.send(reply);
+
+                        // Attendre la réponse de l'utilisateur avant de livrer la pièce
                     } else {
                         reply.setPerformative(ACLMessage.REFUSE);
-                        reply.setContent("Sorry, no stock.");
+                        reply.setContent("Plus de stock pour cette pièce.");
+                        myAgent.send(reply);
                     }
-                    myAgent.send(reply);
-                } else {
+                }
+                else if (msg != null && msg.getPerformative() == ACLMessage.ACCEPT_PROPOSAL) {
+                    String purchasedPart = msg.getContent();
+                    System.out.println("Livraison en cours pour " + msg.getSender().getLocalName());
+
+                    // Simuler un délai de livraison
+                    new Timer().schedule(new TimerTask() {
+                        @Override
+                        public void run() {
+                            ACLMessage delivery = msg.createReply();
+                            delivery.setPerformative(ACLMessage.INFORM);
+                            delivery.setContent("Pièce livrée : " + purchasedPart);
+                            myAgent.send(delivery);
+
+                            // Supprimer la pièce du stock après livraison
+                            parts.removeIf(p -> p.getName().equals(purchasedPart));
+
+                            System.out.println("Pièce " + purchasedPart + " livrée à " + msg.getSender().getLocalName());
+                        }
+                    }, 5000); // Délai de livraison de 5 secondes
+                }
+                else {
                     block();
                 }
             }

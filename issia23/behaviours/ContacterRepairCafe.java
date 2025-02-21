@@ -1,40 +1,35 @@
 package issia23.behaviours;
 
 import issia23.agents.UserAgent;
+import issia23.data.Product;
+import jade.core.AID;
+import jade.core.AgentServicesTools;
 import jade.lang.acl.ACLMessage;
 import jade.proto.ContractNetInitiator;
 
 import java.util.ArrayList;
 import java.util.List;
 
-public class ContacterRepairCafe  extends ContractNetInitiator{
+public class ContacterRepairCafe extends ContractNetInitiator {
 
     UserAgent monAgent;
+
     public ContacterRepairCafe(UserAgent a, ACLMessage msg) {
         super(a, msg);
         monAgent = a;
-//        reset();
         monAgent.println("I am in the contacter repair cafe behaviour");
     }
 
-    //function triggered by a PROPOSE msg
-    // @param propose     the received propose message
-    // @param acceptances the list of ACCEPT/REJECT_PROPOSAL to be sent back.
-    //                    list that can be modified here or at once when all the messages are received
     @Override
     public void handlePropose(ACLMessage propose, List<ACLMessage> acceptations) {
-        monAgent.println("Agent %s proposes %s ".formatted(propose.getSender().getLocalName(), propose.getContent()));
+        monAgent.println("Agent " + propose.getSender().getLocalName() + " proposes " + propose.getContent() + "€");
     }
 
-    //function triggered by a REFUSE msg
     @Override
     protected void handleRefuse(ACLMessage refuse) {
-        monAgent.println("REFUSE ! I received a refuse from " + refuse.getSender().getLocalName());
+        monAgent.println("Refus reçu de " + refuse.getSender().getLocalName());
     }
 
-    //function triggered when all the responses are received (or after the waiting time)
-    //@param theirVotes the list of message sent by the voters
-    //@param myAnswers the list of answers for each voter
     @Override
     protected void handleAllResponses(List<ACLMessage> theirVotes, List<ACLMessage> myAnswers) {
         ArrayList<ACLMessage> listeProposals = new ArrayList<>(theirVotes);
@@ -51,34 +46,78 @@ public class ContacterRepairCafe  extends ContractNetInitiator{
             myAnswers.add(answer);
 
             try {
-                double content = Double.parseDouble(proposal.getContent().trim());
-                monAgent.println(proposal.getSender().getLocalName() + " has proposed " + content + "€");
+                double price = Double.parseDouble(proposal.getContent().trim());
+                monAgent.println(proposal.getSender().getLocalName() + " propose " + price + "€");
 
-                if (content < bestPrice) {
-                    bestPrice = content;
+                if (price < bestPrice) {
+                    bestPrice = price;
                     bestProposal = proposal;
                     bestAnswer = answer;
                 }
             } catch (NumberFormatException e) {
-                monAgent.println("Error parsing price from " + proposal.getSender().getLocalName() + ": " + proposal.getContent());
+                monAgent.println("Erreur de conversion du prix : " + proposal.getContent());
             }
         }
 
         if (bestProposal != null) {
-            bestAnswer.setPerformative(ACLMessage.ACCEPT_PROPOSAL);
-            monAgent.println("I choose the proposal of " + bestProposal.getSender().getLocalName() + " for " + bestPrice + "€.");
+            double budget = monAgent.budget;
+            double counterPrice = bestPrice * 0.90; // Contre-offre à -10%
+
+            if (bestPrice <= budget) {
+                bestAnswer.setPerformative(ACLMessage.ACCEPT_PROPOSAL);
+                monAgent.budget -= bestPrice;
+                monAgent.println("Accepté pour " + bestPrice + "€. Budget restant : " + monAgent.budget + "€.");
+            } else {
+                monAgent.println("Prix trop élevé, proposition d'une contre-offre à " + counterPrice + "€.");
+
+                ACLMessage counterOffer = bestProposal.createReply();
+                counterOffer.setPerformative(ACLMessage.PROPOSE);
+                counterOffer.setContent(String.valueOf(counterPrice));
+                myAnswers.add(counterOffer);
+            }
         } else {
-            monAgent.println("❌ Aucun RepairCoffeeAgent n'a proposé de solution. Recherche d'autres options...");
+            monAgent.println("Aucune proposition valable, recherche d'une pièce détachée.");
+
+            ACLMessage requestPart = new ACLMessage(ACLMessage.REQUEST);
+            requestPart.setConversationId("part_request");
+
+            Product produitDefectueux = monAgent.products.get(0);
+            String pieceRecherchee = produitDefectueux.getFaultyPart().getName();
+
+            monAgent.println("Recherche de la pièce " + pieceRecherchee);
+            requestPart.setContent(pieceRecherchee);
+
+            for (AID aid : AgentServicesTools.searchAgents(monAgent, "repair", "SparePartsStore")) {
+                requestPart.addReceiver(aid);
+            }
+
+            monAgent.send(requestPart);
         }
     }
 
-
-
-    //function triggered by a INFORM msg : a voter accept the result
-    // @Override
+    @Override
     protected void handleInform(ACLMessage inform) {
-        monAgent.println("the vote is accepted by " + inform.getSender().getLocalName());
+        monAgent.println("Réception d'une pièce : " + inform.getContent());
+
+        if (inform.getContent().contains("Pièce livrée")) {
+            monAgent.println("Réparation réussie avec la pièce achetée !");
+        } else if (inform.getContent().contains("Plus de stock")) {
+            monAgent.println("Impossible de réparer, achat d’un produit neuf...");
+
+            ACLMessage requestNewProduct = new ACLMessage(ACLMessage.REQUEST);
+            requestNewProduct.setConversationId("product_request");
+
+            Product produitDefectueux = monAgent.products.get(0);
+            String produitRecherche = produitDefectueux.getName();
+
+            monAgent.println("Recherche d'un produit neuf : " + produitRecherche);
+            requestNewProduct.setContent(produitRecherche);
+
+            for (AID aid : AgentServicesTools.searchAgents(monAgent, "repair", "distributor")) {
+                requestNewProduct.addReceiver(aid);
+            }
+
+            monAgent.send(requestNewProduct);
+        }
     }
-
-
-};
+}

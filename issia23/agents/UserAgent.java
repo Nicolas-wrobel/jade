@@ -22,8 +22,9 @@ public class UserAgent extends AgentWindowed {
      */
     List<AID> helpers;
 
-    List<Product> products;
+    public List<Product> products;
     private boolean cfpSent = false;
+    public double budget;
 
     @Override
     public void setup() {
@@ -31,6 +32,9 @@ public class UserAgent extends AgentWindowed {
         window.setButtonActivated(true);
 
         skill = (int) (Math.random() * 4);
+        budget = 50 + Math.random() * 200;
+
+        println("Mon budget initial est de " + String.format("%.2f", budget) + "€");
         println("hello, I have a skill = " + skill);
 
         helpers = new ArrayList<>();
@@ -82,8 +86,8 @@ public class UserAgent extends AgentWindowed {
 
     /**add a CFP from user to list of helpers*/
     private void addCFP() {
-        System.out.println("🛠 `addCFP()` est appelé !");
-        System.out.println("📌 Nombre de produits avant sélection: " + products.size());
+        System.out.println("`addCFP()` est appelé !");
+        System.out.println("Nombre de produits avant sélection: " + products.size());
 
         if (products.isEmpty()) {
             println("No products available for repair request.");
@@ -94,7 +98,7 @@ public class UserAgent extends AgentWindowed {
         Product selectedProduct = products.get(randint);
 
         if (selectedProduct == null || selectedProduct.getName() == null || selectedProduct.getName().isEmpty()) {
-            println("⚠ Erreur : produit sélectionné invalide.");
+            println("Erreur : produit sélectionné invalide.");
             return;
         }
 
@@ -106,7 +110,7 @@ public class UserAgent extends AgentWindowed {
         msg.setProtocol(FIPANames.InteractionProtocol.FIPA_CONTRACT_NET);
         msg.setReplyByDate(new Date(System.currentTimeMillis() + 1000));
 
-        println("📩 Demande envoyée pour la réparation de : " + selectedProduct.getName());
+        println("Demande envoyée pour la réparation de : " + selectedProduct.getName());
         addBehaviour(new ContacterRepairCafe(this, msg));
     }
 

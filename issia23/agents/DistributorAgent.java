@@ -7,10 +7,8 @@ import jade.gui.SimpleWindow4Agent;
 import jade.lang.acl.ACLMessage;
 
 import java.awt.*;
-import java.util.ArrayList;
-import java.util.HashSet;
+import java.util.*;
 import java.util.List;
-import java.util.Set;
 
 public class DistributorAgent extends AgentWindowed {
     Set<Product> products;
@@ -42,24 +40,46 @@ public class DistributorAgent extends AgentWindowed {
             public void action() {
                 ACLMessage msg = myAgent.receive();
                 if (msg != null && msg.getPerformative() == ACLMessage.REQUEST) {
-                    System.out.println(getLocalName() + " received a purchase request for " + msg.getContent());
+                    System.out.println(getLocalName() + " Requête pour un produit neuf : " + msg.getContent());
 
                     ACLMessage reply = msg.createReply();
-                    boolean productAvailable = products.stream().anyMatch(p -> p.getName().equals(msg.getContent()));
+                    Optional<Product> productToSell = products.stream()
+                            .filter(p -> p.getName().equals(msg.getContent()))
+                            .findFirst();
 
-                    if (productAvailable) {
-                        reply.setPerformative(ACLMessage.AGREE);
-                        reply.setContent("Product available for purchase.");
+                    if (productToSell.isPresent()) {
+                        double productPrice = productToSell.get().getPrice();
+                        reply.setPerformative(ACLMessage.PROPOSE);
+                        reply.setContent(String.valueOf(productPrice));
+                        myAgent.send(reply);
                     } else {
                         reply.setPerformative(ACLMessage.REFUSE);
-                        reply.setContent("Sorry, out of stock.");
+                        reply.setContent("Produit en rupture de stock.");
+                        myAgent.send(reply);
                     }
-                    myAgent.send(reply);
+                }
+                else if (msg != null && msg.getPerformative() == ACLMessage.ACCEPT_PROPOSAL) {
+                    String purchasedProduct = msg.getContent();
+                    System.out.println("Livraison du produit " + purchasedProduct + " à " + msg.getSender().getLocalName());
+
+                    new Timer().schedule(new TimerTask() {
+                        @Override
+                        public void run() {
+                            ACLMessage delivery = msg.createReply();
+                            delivery.setPerformative(ACLMessage.INFORM);
+                            delivery.setContent("Produit neuf livré : " + purchasedProduct);
+                            myAgent.send(delivery);
+
+                            products.removeIf(p -> p.getName().equals(purchasedProduct));
+                            System.out.println("Produit " + purchasedProduct + " livré !");
+                        }
+                    }, 5000);
                 } else {
                     block();
                 }
             }
         });
+
 
         System.out.println(getLocalName() + " est prêt !");
     }
